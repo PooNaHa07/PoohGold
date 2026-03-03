@@ -1,0 +1,36 @@
+Act as an Expert Full-Stack Developer specializing in Next.js 14+ (App Router), React, Tailwind CSS, Supabase (PostgreSQL + Realtime), and Node.js. 
+
+I want to build a "Real-time Gold Trading Decision Support System" tailored for Thai Gold (96.5%). 
+
+Project Name: Pooh Dev Gold Analytics
+
+Here are the strict requirements and steps to execute:
+
+### 1. Database Setup (Supabase SQL)
+Provide the exact SQL commands to run in the Supabase SQL Editor.
+- Create a table named `gold_prices`: `id` (uuid, primary key), `xauusd` (numeric), `usd_thb` (numeric), `calculated_thai_gold` (numeric), `premium` (numeric, default 0), `created_at` (timestamp with time zone, default now()).
+- Create a table named `trade_journal`: `id` (uuid, primary key), `action` (text: 'ซื้อ' or 'ขาย'), `entry_price` (numeric), `lot_size_baht` (numeric), `status` (text: 'เปิด' or 'ปิด'), `pnl` (numeric), `notes` (text), `created_at` (timestamp with time zone, default now()).
+- IMPORTANT: Include the SQL command to explicitly ENABLE REALTIME for the `gold_prices` table.
+
+### 2. The Data Feeder Script (`scripts/feeder.js`)
+Write a standalone Node.js script that will run continuously on the backend to fetch data and push it to Supabase.
+- Use `axios` or standard `fetch` to get XAUUSD and USDTHB from the Tiingo API (REST).
+- Calculate the Thai Gold Price using this exact formula: ThaiGold = (XAUUSD * USDTHB * 0.4729) + Premium
+- Use the `@supabase/supabase-js` client with the `SUPABASE_SERVICE_ROLE_KEY` to insert this data into the `gold_prices` table every 15 seconds.
+- Provide clear setup instructions and required `.env` variables for this script.
+
+### 3. Next.js Application Setup
+- Initialize the Supabase client in `lib/supabase.ts` using `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- In `app/page.tsx`, build the main Dashboard.
+
+### 4. UI/UX Specifications (Frontend)
+- **Language Constraint: ALL user-facing text, headings, table headers, buttons, and placeholders MUST be in the Thai language.** (e.g., "ราคาทองโลก", "อัตราแลกเปลี่ยน", "ราคาไทยคำนวณ 96.5%", "สมุดจดเทรด", "เพิ่มข้อมูลการเทรด").
+- Theme: Dark mode by default.
+- Aesthetic: Modern "Glassmorphism" UI. Use Tailwind classes like `bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white` to create translucent, sleek containers.
+- Real-time Price Widget: Use Supabase Realtime subscriptions (`supabase.channel('custom-insert-channel').on(...)`) to listen for new rows in `gold_prices`.
+- State Management: When a new price arrives, update the UI instantly without page reload.
+- Visual Feedback: If the new `calculated_thai_gold` is higher than the previous tick, flash the text/container Green briefly. If lower, flash Red.
+- Trade Journal Component: Below the price widget, create a simple Glassmorphism form (in Thai) to insert data into the `trade_journal` table, and a list to display recent trades.
+
+### 5. Execution
+Please output the exact folder structure, the SQL script, the `feeder.js` script, the `lib/supabase.ts` file, and the full code for `app/page.tsx`. Ensure all Tailwind classes are fully implemented for the Glassmorphism design and all UI text is in Thai.
