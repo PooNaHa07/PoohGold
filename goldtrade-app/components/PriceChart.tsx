@@ -255,7 +255,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
 
         const rsiSeries = rsiChart.addSeries(LineSeries, {
           color: '#a855f7',
-          lineWidth: 1.5,
+          lineWidth: 2,
           lastValueVisible: true,
           title: 'RSI(14)',
         })
