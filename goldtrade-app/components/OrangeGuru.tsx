@@ -6,7 +6,6 @@ import { NewsItem, GoldPrice, TradeJournal } from '../types'
 
 interface OrangeGuruProps {
   news: NewsItem[]
-  history: GoldPrice[]
   currentPrice: GoldPrice | null
   journal: TradeJournal[]
 }
