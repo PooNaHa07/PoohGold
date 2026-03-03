@@ -27,7 +27,7 @@ function calcMA(prices: number[], period: number): number | null {
   return slice.reduce((a, b) => a + b, 0) / period
 }
 
-export default function SignalPanel({ history, currentPrice }: SignalPanelProps) {
+export default function SignalPanel({ history }: SignalPanelProps) {
   const analysis = useMemo(() => {
     const sorted = [...history].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -91,18 +91,6 @@ export default function SignalPanel({ history, currentPrice }: SignalPanelProps)
 
   const overallIcon =
     analysis.overall === 'ซื้อ' ? '▲' : analysis.overall === 'ขาย' ? '▼' : '⏸'
-
-  function SignalBadge({ signal }: { signal: 'ซื้อ' | 'ขาย' | 'รอ' }) {
-    const cls =
-      signal === 'ซื้อ' ? 'bg-green-500/15 text-green-400 border border-green-500/25' :
-      signal === 'ขาย' ? 'bg-red-500/15 text-red-400 border border-red-500/25' :
-      'bg-yellow-500/15 text-yellow-400 border border-yellow-500/25'
-    return (
-      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
-        {signal === 'ซื้อ' ? '▲ ซื้อ' : signal === 'ขาย' ? '▼ ขาย' : '⏸ รอ'}
-      </span>
-    )
-  }
 
   const hasData = analysis.dataPoints >= 5
 
@@ -211,5 +199,17 @@ export default function SignalPanel({ history, currentPrice }: SignalPanelProps)
         ⚠️ สัญญาณเป็นเพียงข้อมูลช่วยตัดสินใจ ไม่ใช่คำแนะนำลงทุน
       </p>
     </div>
+  )
+}
+
+function SignalBadge({ signal }: { signal: 'ซื้อ' | 'ขาย' | 'รอ' }) {
+  const cls =
+    signal === 'ซื้อ' ? 'bg-green-500/15 text-green-400 border border-green-500/25' :
+    signal === 'ขาย' ? 'bg-red-500/15 text-red-400 border border-red-500/25' :
+    'bg-yellow-500/15 text-yellow-400 border border-yellow-500/25'
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+      {signal === 'ซื้อ' ? '▲ ซื้อ' : signal === 'ขาย' ? '▼ ขาย' : '⏸ รอ'}
+    </span>
   )
 }

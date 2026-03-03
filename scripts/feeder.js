@@ -93,6 +93,32 @@ async function fetchXAUUSD() {
 }
 
 // ============================================================
+// Helper: ดึงราคาจาก ฮั่วเซ่งเฮง (HSH) - Using Stable API
+// ============================================================
+async function fetchHSHPrices() {
+  try {
+    // API สำหรับ Gold Bars 96.5%
+    const url965 = 'https://apicheckpricev3.huasengheng.com/api/values/getprice/';
+    const res965 = await fetch(url965);
+    
+    if (res965.ok) {
+      const data = await res965.json();
+      // ค้นหารายการที่เป็น GoldType: "HSH" และ GoldCode: "96.50"
+      const hshData = data.find(item => item.GoldType === 'HSH' && item.GoldCode === '96.50');
+      
+      if (hshData) {
+        const buy = parseFloat(hshData.Buy.replace(/,/g, ''));
+        const sell = parseFloat(hshData.Sell.replace(/,/g, ''));
+        return { buy, sell };
+      }
+    }
+  } catch (err) {
+    console.warn('  ⚠️  HSH API failed:', err.message);
+  }
+  return null;
+}
+
+// ============================================================
 // Helper: ดึง USD/THB จาก app.exchangerate-api.com (Key required)
 // อัปเดตทุก ~60 วินาที เหมาะสำหรับ real-time gold pricing
 // Fallback: open.er-api.com ถ้าไม่มี API key
@@ -118,14 +144,21 @@ async function fetchUSDTHB() {
 }
 
 // ============================================================
-// ThaiGold 96.5% = (XAUUSD × USDTHB × 0.4729) + Premium
-// ThaiGold 99.99% = (XAUUSD × USDTHB × 0.4874) + Premium
-// 0.4729 : (15.244g * 0.965) / 31.1035g
-// 0.4874 : (15.160g * 1.000) / 31.1035g
+// ThaiGold 96.5% = ((XAUUSD + SpotPremium) × USDTHB × 0.4729) + Premium
+// ThaiGold 99.99% = ((XAUUSD + SpotPremium) × USDTHB × 0.4874) + Premium
+// Round to nearest 50 for 96.5% and 10 for 99.99% (GTA style)
 // ============================================================
 function calculateGoldPrices(xauusd, usdthb, premium = 0) {
-  const gold965 = xauusd * usdthb * 0.4729 + premium;
-  const gold9999 = xauusd * usdthb * 0.4874 + premium;
+  const SPOT_PREMIUM = 1.5; // Standard international delivery/insurance premium
+  
+  const raw965 = (xauusd + SPOT_PREMIUM) * usdthb * 0.4729 + premium;
+  const raw9999 = (xauusd + SPOT_PREMIUM) * usdthb * 0.4874 + premium;
+  
+  // GTA Rounding: 96.5% usually rounds to nearest 50 THB
+  const gold965 = Math.round(raw965 / 50) * 50;
+  // 99.99% matches global more closely but often rounds to 10 or 50
+  const gold9999 = Math.round(raw9999 / 10) * 10;
+  
   return { gold965, gold9999 };
 }
 
@@ -136,12 +169,16 @@ async function fetchAndStore() {
   try {
     console.log(`\n[${new Date().toLocaleString('th-TH')}] กำลังดึงข้อมูล...`);
 
-    const [xauusd, usdthb] = await Promise.all([fetchXAUUSD(), fetchUSDTHB()]);
+    const [xauusd, usdthb, hsh] = await Promise.all([fetchXAUUSD(), fetchUSDTHB(), fetchHSHPrices()]);
     const { gold965, gold9999 } = calculateGoldPrices(xauusd, usdthb, PREMIUM);
 
     console.log(`  💰  XAUUSD           : $${xauusd.toFixed(2)}`);
     console.log(`  💱  USD/THB           : ${usdthb.toFixed(4)}`);
-    console.log(`  🥇  ทองไทย 96.5%    : ฿${gold965.toFixed(2)}`);
+    console.log(`  🥇  ทองไทย (GTA Est) : ฿${gold965.toFixed(2)}`);
+    if (hsh) {
+      console.log(`  🍊  Hua Seng Heng Buy : ฿${hsh.buy.toLocaleString()}`);
+      console.log(`  🍊  Hua Seng Heng Sell: ฿${hsh.sell.toLocaleString()}`);
+    }
     console.log(`  🏆  ทองไทย 99.99%   : ฿${gold9999.toFixed(2)}`);
     console.log(`  ➕  Premium           : ฿${PREMIUM}`);
 
@@ -150,6 +187,8 @@ async function fetchAndStore() {
       usd_thb: usdthb,
       calculated_thai_gold: gold965,
       calculated_gold_9999: gold9999,
+      hsh_965_buy: hsh?.buy || null,
+      hsh_965_sell: hsh?.sell || null,
       premium: PREMIUM,
     });
 

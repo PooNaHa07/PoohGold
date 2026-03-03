@@ -4,11 +4,18 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useRef, useCallback, Suspense, lazy } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { GoldPrice, TradeJournal, TradeFormData } from '@/types'
+import type { GoldPrice, TradeJournal, TradeFormData, NewsItem } from '@/types'
 import SignalPanel from '@/components/SignalPanel'
+import SentimentGauge from '@/components/SentimentGauge'
 import OrderManager from '@/components/OrderManager'
 import DCASimulator from '@/components/DCASimulator'
+import GoldNews from '@/components/GoldNews'
+import DivergenceAlert from '@/components/DivergenceAlert'
 import BottomNav from '@/components/BottomNav'
+import AIOracle from '@/components/AIOracle'
+import AICoach from '@/components/AICoach'
+import OrangeGuru from '@/components/OrangeGuru'
+
 
 // Lazy load chart (heavy lib)
 const PriceChart = lazy(() => import('@/components/PriceChart'))
@@ -68,6 +75,7 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [selectedGoldType, setSelectedGoldType] = useState<'96.5%' | '99.99%'>('96.5%')
+  const [news, setNews] = useState<NewsItem[]>([])
   const [lastUpdateTime, setLastUpdateTime] = useState('')
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
   const flashTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -108,6 +116,13 @@ export default function Dashboard() {
         .order('created_at', { ascending: false })
         .limit(20)
       if (tradeData) setTrades(tradeData)
+
+      const { data: newsData } = await supabase
+        .from('gold_news')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(20)
+      if (newsData) setNews(newsData)
     }
     load()
   }, [])
@@ -128,7 +143,22 @@ export default function Dashboard() {
         if (status === 'SUBSCRIBED') setConnectionStatus('connected')
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setConnectionStatus('error')
       })
-    return () => { supabase.removeChannel(channel) }
+    const newsChannel = supabase
+      .channel('gold-news-realtime-page')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gold_news' }, (payload) => {
+        setNews((prev) => {
+          const combined = [payload.new as NewsItem, ...prev]
+          return combined
+            .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
+            .slice(0, 50)
+        })
+      })
+      .subscribe()
+
+    return () => { 
+      supabase.removeChannel(channel)
+      supabase.removeChannel(newsChannel)
+    }
   }, [])
 
   useEffect(() => {
@@ -209,6 +239,8 @@ export default function Dashboard() {
           </div>
         </header>
 
+        <DivergenceAlert currentPrice={currentPrice} prevPrice={prevPrice} news={news} />
+
         {/* ====== Price Cards ====== */}
         <section className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 ${flashClass}`}>
           <div className="glass-strong p-6 md:col-span-2 relative overflow-hidden">
@@ -224,7 +256,13 @@ export default function Dashboard() {
                   flashClass="" prefix="฿" size="3xl" 
                 />
               </div>
-              <p className="text-white/40 text-xs mt-2">บาท / บาท (หน่วยน้ำหนัก)</p>
+              <div className="flex gap-4 mt-2">
+                <div className="text-white/40 text-[10px]">สมาคมฯ (GTA): <span className="text-amber-400 font-mono">฿{currentPrice?.calculated_thai_gold.toLocaleString()}</span></div>
+                {currentPrice?.hsh_965_sell && (
+                  <div className="text-white/40 text-[10px]">ฮั่วเซ่งเฮง (HSH): <span className="text-blue-400 font-mono">฿{currentPrice.hsh_965_sell.toLocaleString()}</span></div>
+                )}
+              </div>
+              <p className="text-white/40 text-xs mt-1">บาท / บาท (หน่วยน้ำหนัก)</p>
             </div>
           </div>
           <div className="glass p-5">
@@ -246,8 +284,9 @@ export default function Dashboard() {
           <div className="flex items-center flex-wrap gap-2 text-sm">
             <span className="text-white/40 text-xs">สูตร:</span>
             <span className="font-mono bg-white/5 px-3 py-1 rounded-lg text-amber-300 text-xs">
-              XAUUSD × USDTHB × {selectedGoldType === '99.99%' ? '0.4874' : '0.4729'}
+              (XAUUSD + 2.0) × USDTHB × {selectedGoldType === '99.99%' ? '0.4874' : '0.4729'}
             </span>
+            <span className="text-white/40 text-[10px] italic">(ปัดเศษ 50 บาท)</span>
             <span className="text-white/40">+</span>
             <span className="font-mono bg-white/5 px-3 py-1 rounded-lg text-blue-300 text-xs">Premium (฿{currentPrice?.premium ?? 0})</span>
             <span className="text-white/40">=</span>
@@ -258,8 +297,8 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* ====== Chart + Signal ====== */}
-        <section id="chart" className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        {/* ====== Chart + Signal + News ====== */}
+        <section id="chart" className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
           <div className="lg:col-span-2">
             <Suspense fallback={
               <div className="glass p-5 h-[340px] flex items-center justify-center text-white/30">
@@ -269,10 +308,18 @@ export default function Dashboard() {
                 </div>
               </div>
             }>
-              <PriceChart history={priceHistory} currentPrice={currentPrice} />
+              <PriceChart history={priceHistory} currentPrice={currentPrice} news={news} />
             </Suspense>
           </div>
-          <SignalPanel history={priceHistory} currentPrice={currentPrice} />
+          <div className="lg:col-span-1 flex flex-col gap-4">
+            <SignalPanel history={priceHistory} currentPrice={currentPrice} />
+            <AIOracle history={priceHistory} currentPrice={currentPrice} news={news} />
+            <SentimentGauge news={news} />
+            <AICoach journal={trades} />
+          </div>
+          <div className="lg:col-span-1">
+            <GoldNews news={news.slice(0, 3)} />
+          </div>
         </section>
 
         {/* ====== Unrealized P&L Banner (แสดงถ้ามี trade เปิดอยู่) ====== */}
@@ -374,7 +421,7 @@ export default function Dashboard() {
 
         {/* DCA Simulator Section */}
         <section id="savings" className="grid grid-cols-1 mb-4">
-          <DCASimulator currentPrice={currentPrice} />
+          <DCASimulator currentPrice={currentPrice} news={news} />
         </section>
 
         {/* ====== Trade List with Unrealized P&L ====== */}
@@ -442,6 +489,7 @@ export default function Dashboard() {
         </footer>
       </div>
       <BottomNav />
+      <OrangeGuru news={news} currentPrice={currentPrice} journal={trades} />
     </div>
   )
 }

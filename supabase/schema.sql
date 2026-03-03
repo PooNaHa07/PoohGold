@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS gold_prices (
   xauusd               NUMERIC NOT NULL,
   usd_thb              NUMERIC NOT NULL,
   calculated_thai_gold NUMERIC NOT NULL,
+  calculated_gold_9999 NUMERIC,
+  hsh_965_buy          NUMERIC,
+  hsh_965_sell         NUMERIC,
   premium              NUMERIC NOT NULL DEFAULT 0,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -32,6 +35,7 @@ CREATE TABLE IF NOT EXISTS trade_journal (
   status         TEXT NOT NULL DEFAULT 'เปิด' CHECK (status IN ('เปิด', 'ปิด')),
   pnl            NUMERIC DEFAULT 0,
   notes          TEXT,
+  ai_insight     TEXT, -- คำแนะนำ AI สำหรับเทรดนี้
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -55,8 +59,27 @@ CREATE TABLE IF NOT EXISTS limit_orders (
 CREATE INDEX IF NOT EXISTS idx_limit_orders_status ON limit_orders (status);
 
 -- ============================================================
+-- Table: gold_news
+-- ============================================================
+CREATE TABLE IF NOT EXISTS gold_news (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title       TEXT NOT NULL,
+  url         TEXT NOT NULL UNIQUE,
+  snippet     TEXT,
+  source      TEXT,
+  published_at TIMESTAMPTZ,
+  impact_type  TEXT CHECK (impact_type IN ('bullish', 'bearish', 'neutral')),
+  impact_summary TEXT,
+  volatility_score INTEGER DEFAULT 1, -- ระดับความผันผวน 1-10
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gold_news_created_at ON gold_news (created_at DESC);
+
+-- ============================================================
 -- Enable Realtime
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE gold_prices;
 ALTER PUBLICATION supabase_realtime ADD TABLE trade_journal;
 ALTER PUBLICATION supabase_realtime ADD TABLE limit_orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE gold_news;

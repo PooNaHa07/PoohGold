@@ -2,16 +2,18 @@
 
 import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { GoldPrice } from '@/types'
+import type { GoldPrice, NewsItem } from '@/types'
 
 interface DCASimulatorProps {
   currentPrice: GoldPrice | null
+  news: NewsItem[]
 }
 
-export default function DCASimulator({ currentPrice }: DCASimulatorProps) {
+export default function DCASimulator({ currentPrice, news }: DCASimulatorProps) {
   const [monthlyAmount, setMonthlyAmount] = useState('5000')
   const [periodMonths, setPeriodMonths] = useState('12')
   const [buyDay, setBuyDay] = useState('1')
+  const [isSmartMode, setIsSmartMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<{
     totalInvested: number
@@ -26,8 +28,6 @@ export default function DCASimulator({ currentPrice }: DCASimulatorProps) {
     setIsLoading(true)
     
     try {
-      // ดึงข้อมูลราคาทองย้อนหลัง (ในความเป็นจริงอาจต้องมี API แยกสำหรับข้อมูลรายวัน/รายเดือนที่ไกลกว่านี้)
-      // แต่ในที่นี้เราจะดึงจาก gold_prices เท่าที่มี
       const { data: history } = await supabase
         .from('gold_prices')
         .select('calculated_thai_gold, created_at')
@@ -45,7 +45,19 @@ export default function DCASimulator({ currentPrice }: DCASimulatorProps) {
       let totalInvested = 0
       let totalGoldBaht = 0
 
-      // จำลองการซื้อรายเดือน (Logic ง่ายๆ: หาจุดใน history ที่ใกล้เคียงกับวันที่ระบุที่สุดในแต่ละเดือน)
+      // Calculate current sentiment for Smart DCA
+      let sentimentMultiplier = 1
+      if (isSmartMode && news.length > 0) {
+        let score = 0
+        news.slice(0, 10).forEach(n => {
+          if (n.impact_type === 'bullish') score++
+          if (n.impact_type === 'bearish') score--
+        })
+        const avg = score / Math.min(news.length, 10)
+        if (avg > 0.2) sentimentMultiplier = 1.2 // Buy more if bullish
+        if (avg < -0.2) sentimentMultiplier = 0.8 // Buy less if bearish
+      }
+
       const monthlyPicks: number[] = []
       const processedMonths = new Set<string>()
 
@@ -61,14 +73,14 @@ export default function DCASimulator({ currentPrice }: DCASimulatorProps) {
       }
 
       if (monthlyPicks.length === 0) {
-        // Fallback: ใช้ราคาเฉลี่ยถ้าหาจุดซื้อไม่เจอ
         const avg = history.reduce((s, r) => s + r.calculated_thai_gold, 0) / history.length
         monthlyPicks.push(...Array(months).fill(avg))
       }
 
       monthlyPicks.forEach(price => {
-        totalInvested += amount
-        totalGoldBaht += amount / price
+        const actualAmount = amount * sentimentMultiplier
+        totalInvested += actualAmount
+        totalGoldBaht += actualAmount / price
       })
 
       const currentValue = totalGoldBaht * currentPrice.calculated_thai_gold
@@ -135,6 +147,19 @@ export default function DCASimulator({ currentPrice }: DCASimulatorProps) {
               <option value="28">ปลายเดือน</option>
             </select>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <div>
+            <p className="text-amber-400 text-xs font-bold">Smart DCA Mode 🤖</p>
+            <p className="text-white/40 text-[9px]">ปรับเปลี่ยนจำนวนเงินออมตามสภาวะตลาดชั่วคราว</p>
+          </div>
+          <button 
+            onClick={() => setIsSmartMode(!isSmartMode)}
+            className={`w-10 h-5 rounded-full relative transition-colors ${isSmartMode ? 'bg-amber-500' : 'bg-white/10'}`}
+          >
+            <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isSmartMode ? 'right-1' : 'left-1'}`} />
+          </button>
         </div>
 
         <button 
