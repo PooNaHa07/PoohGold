@@ -174,7 +174,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
       const prices = uniqueTimes.map((t) => uniqueDataMap.get(t)!)
 
       const priceData = uniqueTimes.map((t, i) => ({
-        time: t as unknown,
+        time: t as any,
         value: prices[i],
       }))
 
@@ -182,12 +182,12 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
       const ma21Values = calcMA(prices, 21)
 
       const ma7Data = uniqueTimes
-        .map((t, i) => (ma7Values[i] !== null ? { time: t as unknown, value: ma7Values[i]! } : null))
-        .filter(Boolean)
+        .map((t, i) => (ma7Values[i] !== null ? { time: t as any, value: ma7Values[i]! } : null))
+        .filter(Boolean) as any[]
 
       const ma21Data = uniqueTimes
-        .map((t, i) => (ma21Values[i] !== null ? { time: t as unknown, value: ma21Values[i]! } : null))
-        .filter(Boolean)
+        .map((t, i) => (ma21Values[i] !== null ? { time: t as any, value: ma21Values[i]! } : null))
+        .filter(Boolean) as any[]
 
       try {
         if (priceSeries) priceSeries.setData(priceData)
@@ -205,7 +205,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
               if (time < minTime || time > maxTime) return null
 
               return {
-                time: time as unknown,
+                time: time as any,
                 position: 'aboveBar' as const,
                 color: n.impact_type === 'bullish' ? '#4ade80' : n.impact_type === 'bearish' ? '#f87171' : '#fbbf24',
                 shape: 'circle' as const,
@@ -213,7 +213,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
                 size: 1,
               }
             })
-            .filter(Boolean)
+            .filter(Boolean) as any[]
           
           if (priceSeries.setMarkers) {
             priceSeries.setMarkers(markers)
@@ -269,7 +269,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
           lastValueVisible: false,
           priceLineVisible: false,
         })
-        if (baseline70) baseline70.setData(uniqueTimes.map(t => ({ time: t as unknown, value: 70 })))
+        if (baseline70) baseline70.setData(uniqueTimes.map(t => ({ time: t as any, value: 70 })))
 
         const baseline30 = rsiChart.addSeries(LineSeries, {
           color: 'rgba(34, 197, 94, 0.2)',
@@ -278,12 +278,12 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
           lastValueVisible: false,
           priceLineVisible: false,
         })
-        if (baseline30) baseline30.setData(uniqueTimes.map(t => ({ time: t as unknown, value: 30 })))
+        if (baseline30) baseline30.setData(uniqueTimes.map(t => ({ time: t as any, value: 30 })))
 
         const rsiValues = calcRSI(prices, 14)
         const rsiData = uniqueTimes
-          .map((t, i) => (rsiValues[i] !== null ? { time: t as unknown, value: rsiValues[i]! } : null))
-          .filter(Boolean)
+          .map((t, i) => (rsiValues[i] !== null ? { time: t as any, value: rsiValues[i]! } : null))
+          .filter(Boolean) as any[]
         
         if (rsiSeries) rsiSeries.setData(rsiData)
         
@@ -305,7 +305,7 @@ export default function PriceChart({ history, currentPrice, news = [] }: PriceCh
   // อัปเดต tick ใหม่แบบ real-time (ไม่ re-init chart)
   useEffect(() => {
     if (!currentPrice || !seriesRef.current) return
-    const time = Math.floor(new Date(currentPrice.created_at).getTime() / 1000) as unknown
+    const time = Math.floor(new Date(currentPrice.created_at).getTime() / 1000) as any
     const value = currentPrice.calculated_thai_gold
     ;(seriesRef.current as { update: (d: unknown) => void }).update({ time, value })
   }, [currentPrice])
